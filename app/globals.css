@@ -1,26 +1,37 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ink: #141312;
+  --color-paper: #f6f3ec;
+  --color-sun: oklch(0.9 0.17 95);
+  --color-sky: oklch(0.85 0.1 230);
+  --color-muted: #b9b4ab;
+  --color-faint: #8d887f;
+  --font-sans: var(--font-bricolage);
+  --font-mono: var(--font-jetbrains);
+  --font-hand: var(--font-gochi);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+a:hover {
+  opacity: 0.75;
+}
+
+/* photo placeholder stripes */
+.stripes {
+  background: repeating-linear-gradient(135deg, #2a2825 0 12px, #232120 12px 24px);
+}
+.stripes-alt {
+  background: repeating-linear-gradient(135deg, #2e2c29 0 12px, #262422 12px 24px);
+}
+
+/* Hidden until GSAP animates them in. `js-anim` is only set when JS runs and motion is allowed. */
+.js-anim [data-anim],
+.hover-pop {
+  visibility: hidden;
 }
