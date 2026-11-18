@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import { Board } from "./Board";
 import { CalendarView } from "./Calendar";
 import { Timeline } from "./Timeline";
-import { actions, CHANNELS, OWNERS, STATUSES, TYPES, todayISO, useStudio, type Item, type ItemType, type Status } from "./store";
+import {
+  actions, addDays, CHANNELS, diffDays, OWNERS, STATUSES, TYPES, todayISO, useStudio,
+  type Item, type ItemType, type Status,
+} from "./store";
+import { D, DatePicker, Field, Modal, Pill, SearchIcon, Select, TextArea, TextInput, usePressFeedback } from "./ui";
 
 type View = "timeline" | "calendar" | "board";
 const VIEWS: { id: View; label: string }[] = [
@@ -12,9 +18,12 @@ const VIEWS: { id: View; label: string }[] = [
   { id: "calendar", label: "Kalender" },
   { id: "board", label: "Board" },
 ];
+const OWNER_OPTS = [{ value: "", label: "Semua PIC" }, ...OWNERS.map((o) => ({ value: o, label: o }))];
+const TYPE_OPTS = [{ value: "", label: "Semua tipe" }, ...TYPES.map((t) => ({ value: t.id, label: t.label }))];
 
 export function StudioApp() {
   const { items, ready } = useStudio();
+  // the view isn't rendered until the store is ready (client-only), so reading storage here can't mismatch hydration
   const [view, setView] = useState<View>(() => {
     try {
       const v = typeof window === "undefined" ? null : localStorage.getItem("deepa-studio:view");
@@ -27,12 +36,40 @@ export function StudioApp() {
   const [type, setType] = useState("");
   const [q, setQ] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const indicator = useRef<HTMLSpanElement>(null);
+  const tabs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const placed = useRef(false);
 
-  // the view isn't rendered until the store is ready (client-only), so reading storage here can't mismatch hydration
+  usePressFeedback();
+
   const pick = (v: View) => {
     setView(v);
     try { localStorage.setItem("deepa-studio:view", v); } catch {}
   };
+
+  // sliding pill behind the active tab
+  useGSAP(
+    () => {
+      const b = tabs.current[view];
+      if (!b || !indicator.current) return;
+      const to = { x: b.offsetLeft, width: b.offsetWidth };
+      if (!placed.current) gsap.set(indicator.current, to);
+      else gsap.to(indicator.current, { ...to, duration: D(0.45), ease: "power3.out" });
+      placed.current = true;
+    },
+    { dependencies: [view, ready] },
+  );
+
+  // content eases in whenever the view changes
+  useGSAP(
+    () => {
+      if (!ready || !stage.current) return;
+      gsap.from(stage.current, { opacity: 0, y: 10, duration: D(0.3), ease: "power2.out", clearProps: "opacity,transform" });
+      gsap.from("[data-enter]", { opacity: 0, y: 12, duration: D(0.45), stagger: { amount: 0.4 }, ease: "power2.out", clearProps: "opacity,transform" });
+    },
+    { dependencies: [view, ready], scope: stage },
+  );
 
   const today = ready ? todayISO() : "";
   const filtered = useMemo(
@@ -41,7 +78,7 @@ export function StudioApp() {
         (i) =>
           (!owner || i.owner === owner) &&
           (!type || i.type === type) &&
-          (!q || (i.title + i.group + i.notes).toLowerCase().includes(q.toLowerCase())),
+          (!q || (i.title + i.group + i.description).toLowerCase().includes(q.toLowerCase())),
       ),
     [items, owner, type, q],
   );
@@ -50,7 +87,7 @@ export function StudioApp() {
 
   const stats = {
     doing: items.filter((i) => i.status === "doing").length,
-    week: items.filter((i) => i.status !== "done" && i.start <= addWeek(today) && i.end >= today).length,
+    week: items.filter((i) => i.status !== "done" && i.start <= addDays(today, 7) && i.end >= today).length,
     late: items.filter((i) => i.end < today && i.status !== "done").length,
     done: items.length ? Math.round((items.filter((i) => i.status === "done").length / items.length) * 100) : 0,
   };
@@ -80,24 +117,25 @@ export function StudioApp() {
           <p className="m-0 font-mono text-xs text-faint">DEEPA · INTERNAL</p>
           <h1 className="m-0 text-4xl font-extrabold tracking-[-0.04em]">Studio</h1>
         </div>
-        <nav className="flex rounded-full border border-ink/20 bg-white p-1" aria-label="Tampilan">
+        <nav className="relative flex rounded-full border border-ink/20 bg-white p-1" aria-label="Tampilan">
+          <span ref={indicator} className="absolute inset-y-1 left-0 rounded-full bg-ink" aria-hidden />
           {VIEWS.map((v) => (
-            <button key={v.id} onClick={() => pick(v.id)} className={`rounded-full px-4 py-1.5 text-sm font-bold ${view === v.id ? "bg-ink text-paper" : "hover:bg-ink/5"}`}>
+            <button
+              key={v.id}
+              ref={(el) => { tabs.current[v.id] = el; }}
+              onClick={() => pick(v.id)}
+              aria-current={view === v.id}
+              className={`relative z-10 rounded-full px-4 py-1.5 text-sm font-bold transition-colors duration-300 ${view === v.id ? "text-paper" : "hover:text-ink/60"}`}
+            >
               {v.label}
             </button>
           ))}
         </nav>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari…" className="field w-36" />
-          <select value={owner} onChange={(e) => setOwner(e.target.value)} className="field" aria-label="Filter PIC">
-            <option value="">Semua PIC</option>
-            {OWNERS.map((o) => <option key={o}>{o}</option>)}
-          </select>
-          <select value={type} onChange={(e) => setType(e.target.value)} className="field" aria-label="Filter tipe">
-            <option value="">Semua tipe</option>
-            {TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-          </select>
-          <button className="btn bg-sun font-extrabold" onClick={() => create(today)}>+ Item</button>
+          <TextInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari…" aria-label="Cari item" icon={<SearchIcon />} className="w-44" />
+          <Select label="Filter PIC" value={owner} onChange={setOwner} options={OWNER_OPTS} className="w-36" />
+          <Select label="Filter tipe" value={type} onChange={setType} options={TYPE_OPTS} className="w-40" />
+          <button className="btn !bg-sun !py-2 font-extrabold" onClick={() => create(today)}>+ Item</button>
         </div>
       </header>
 
@@ -105,12 +143,14 @@ export function StudioApp() {
         <Stat label="Sedang dikerjakan" value={stats.doing} />
         <Stat label="Aktif 7 hari ke depan" value={stats.week} />
         <Stat label="Terlambat" value={stats.late} warn={stats.late > 0} />
-        <Stat label="Selesai" value={stats.done + "%"} />
+        <Stat label="Selesai" value={stats.done} suffix="%" />
       </section>
 
-      {view === "timeline" && <Timeline items={filtered} today={today} onOpen={setOpenId} />}
-      {view === "calendar" && <CalendarView items={filtered} today={today} onOpen={setOpenId} onCreate={create} />}
-      {view === "board" && <Board items={filtered} today={today} onOpen={setOpenId} />}
+      <div ref={stage}>
+        {view === "timeline" && <Timeline items={filtered} today={today} onOpen={setOpenId} />}
+        {view === "calendar" && <CalendarView items={filtered} today={today} onOpen={setOpenId} onCreate={create} />}
+        {view === "board" && <Board items={filtered} today={today} onOpen={setOpenId} />}
+      </div>
 
       <footer className="mt-8 flex flex-wrap items-center gap-2 font-mono text-xs text-faint">
         <span>Data tersimpan di browser ini.</span>
@@ -120,81 +160,160 @@ export function StudioApp() {
         <input ref={fileRef} type="file" accept="application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) importJson(f); e.target.value = ""; }} />
       </footer>
 
-      {openId && <Editor key={openId} item={items.find((i) => i.id === openId)} groups={[...new Set(items.map((i) => i.group))]} onClose={() => setOpenId(null)} />}
+      {openId && items.some((i) => i.id === openId) && (
+        <ItemModal key={openId} id={openId} items={items} onClose={() => setOpenId(null)} />
+      )}
     </main>
   );
 }
 
-const addWeek = (iso: string) => new Date(Date.parse(iso + "T00:00:00Z") + 7 * 86400000).toISOString().slice(0, 10);
-
-function Stat({ label, value, warn }: { label: string; value: number | string; warn?: boolean }) {
+function Stat({ label, value, suffix = "", warn }: { label: string; value: number; suffix?: string; warn?: boolean }) {
+  const el = useRef<HTMLDivElement>(null);
+  const shown = useRef(0);
+  useGSAP(
+    () => {
+      const o = { v: shown.current };
+      gsap.to(o, {
+        v: value,
+        duration: D(0.8),
+        ease: "power2.out",
+        onUpdate: () => {
+          shown.current = o.v;
+          if (el.current) el.current.textContent = Math.round(o.v) + suffix;
+        },
+      });
+    },
+    { dependencies: [value, suffix] },
+  );
   return (
-    <div className={`rounded-2xl border p-4 ${warn ? "border-red-500/60 bg-red-50" : "border-ink/15 bg-white"}`}>
-      <div className="text-3xl font-extrabold tracking-tight">{value}</div>
+    <div className={`rounded-2xl border p-4 transition-colors duration-500 ${warn ? "border-red-500/60 bg-red-50" : "border-ink/15 bg-white"}`}>
+      <div ref={el} className="text-3xl font-extrabold tracking-tight" aria-label={`${value}${suffix}`} />
       <div className="font-mono text-xs text-faint">{label}</div>
     </div>
   );
 }
 
-function Editor({ item, groups, onClose }: { item?: Item; groups: string[]; onClose: () => void }) {
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", k);
-    return () => window.removeEventListener("keydown", k);
-  }, [onClose]);
-  if (!item) return null;
-  const set = (p: Partial<Item>) => actions.update(item.id, p);
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-ink/30" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <aside className="flex h-full w-full max-w-md flex-col gap-3 overflow-y-auto bg-paper p-5 shadow-2xl" role="dialog" aria-label="Edit item">
-        <div className="flex items-center justify-between">
-          <h2 className="m-0 text-xl font-extrabold">Edit item</h2>
-          <button className="btn" onClick={onClose}>Tutup</button>
-        </div>
-        <Field label="Judul"><input className="field w-full" value={item.title} onChange={(e) => set({ title: e.target.value })} autoFocus /></Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Tipe">
-            <select className="field w-full" value={item.type} onChange={(e) => set({ type: e.target.value as ItemType })}>
-              {TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
-          </Field>
-          <Field label="Status">
-            <select className="field w-full" value={item.status} onChange={(e) => set({ status: e.target.value as Status })}>
-              {STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-          </Field>
-          <Field label="Mulai"><input type="date" className="field w-full" value={item.start} onChange={(e) => e.target.value && set({ start: e.target.value })} /></Field>
-          <Field label="Selesai"><input type="date" className="field w-full" value={item.end} min={item.start} onChange={(e) => e.target.value && set({ end: e.target.value })} /></Field>
-          <Field label="PIC">
-            <select className="field w-full" value={item.owner} onChange={(e) => set({ owner: e.target.value })}>
-              {[...new Set([...OWNERS, item.owner])].map((o) => <option key={o}>{o}</option>)}
-            </select>
-          </Field>
-          <Field label="Channel">
-            <select className="field w-full" value={item.channel} onChange={(e) => set({ channel: e.target.value })}>
-              {[...new Set([...CHANNELS, item.channel])].map((c) => <option key={c}>{c}</option>)}
-            </select>
-          </Field>
-        </div>
-        <Field label="Proyek / kampanye (baris di timeline)">
-          <input className="field w-full" list="groups" value={item.group} onChange={(e) => set({ group: e.target.value })} />
-          <datalist id="groups">{groups.map((g) => <option key={g} value={g} />)}</datalist>
-        </Field>
-        <Field label={`Progres · ${item.progress}%`}>
-          <input type="range" min={0} max={100} step={5} className="w-full accent-ink" value={item.progress} onChange={(e) => set({ progress: +e.target.value })} />
-        </Field>
-        <Field label="Catatan"><textarea className="field min-h-28 w-full" value={item.notes} onChange={(e) => set({ notes: e.target.value })} /></Field>
-        <button className="btn mt-auto self-start text-red-700" onClick={() => { if (confirm("Hapus item ini?")) { actions.remove(item.id); onClose(); } }}>Hapus item</button>
-      </aside>
-    </div>
-  );
-}
+/* ---------- item detail modal ---------- */
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function ItemModal({ id, items, onClose }: { id: string; items: Item[]; onClose: () => void }) {
+  const item = items.find((i) => i.id === id)!;
+  const [confirmDel, setConfirmDel] = useState(false);
+  const set = (p: Partial<Item>) => actions.update(id, p);
+  const groups = [...new Set(items.map((i) => i.group))];
+  const days = diffDays(item.start, item.end) + 1;
+  const status = STATUSES.find((s) => s.id === item.status)!;
+
   return (
-    <label className="flex flex-col gap-1">
-      <span className="font-mono text-xs text-faint">{label}</span>
-      {children}
-    </label>
+    <Modal label="Detail item" onClose={onClose}>
+      {(close) => (
+        <>
+          <div className="flex items-center gap-3 border-b border-ink/10 px-6 py-4">
+            <span className="font-mono text-xs text-faint">ITEM</span>
+            <Pill color={status.color} size="sm">{status.label}</Pill>
+            <span className="font-mono text-xs text-faint">{days} hari</span>
+            <button className="btn ml-auto" onClick={close} aria-label="Tutup">✕</button>
+          </div>
+
+          <div className="flex flex-col gap-5 overflow-y-auto px-6 py-5">
+            <div data-stagger>
+              <input
+                className="field-ghost w-full text-2xl font-extrabold tracking-tight"
+                value={item.title}
+                onChange={(e) => set({ title: e.target.value })}
+                aria-label="Judul"
+                placeholder="Judul item"
+                autoFocus
+              />
+            </div>
+
+            <Field label="Deskripsi" className="" >
+              <div data-stagger>
+                <TextArea
+                  rows={4}
+                  value={item.description}
+                  onChange={(e) => set({ description: e.target.value })}
+                  placeholder="Tulis detail: tujuan, brief, link referensi, hal yang perlu disiapkan…"
+                  aria-label="Deskripsi"
+                />
+              </div>
+            </Field>
+
+            <div className="grid gap-5 sm:grid-cols-2" data-stagger>
+              <Field label="Status">
+                <div className="flex flex-wrap gap-1.5">
+                  {STATUSES.map((s) => (
+                    <Pill key={s.id} color={s.color} selected={item.status === s.id} onClick={() => set({ status: s.id as Status })}>{s.label}</Pill>
+                  ))}
+                </div>
+              </Field>
+              <Field label="Tipe">
+                <div className="flex flex-wrap gap-1.5">
+                  {TYPES.map((t) => (
+                    <Pill key={t.id} selected={item.type === t.id} onClick={() => set({ type: t.id as ItemType })}>{t.label}</Pill>
+                  ))}
+                </div>
+              </Field>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2" data-stagger>
+              <Field label="Mulai">
+                <DatePicker
+                  label="Tanggal mulai"
+                  value={item.start}
+                  // keep the duration when the start moves
+                  onChange={(d) => set({ start: d, end: addDays(d, diffDays(item.start, item.end)) })}
+                />
+              </Field>
+              <Field label="Selesai">
+                <DatePicker label="Tanggal selesai" value={item.end} min={item.start} onChange={(d) => set({ end: d })} />
+              </Field>
+              <Field label="PIC">
+                <Select label="PIC" value={item.owner} onChange={(v) => set({ owner: v })} options={[...new Set([...OWNERS, item.owner])].map((o) => ({ value: o, label: o }))} />
+              </Field>
+              <Field label="Channel">
+                <Select label="Channel" value={item.channel} onChange={(v) => set({ channel: v })} options={[...new Set([...CHANNELS, item.channel])].map((c) => ({ value: c, label: c === "-" ? "Tanpa channel" : c }))} />
+              </Field>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2" data-stagger>
+              <Field label="Proyek / kampanye (baris di timeline)">
+                <TextInput value={item.group} onChange={(e) => set({ group: e.target.value })} aria-label="Proyek atau kampanye" />
+                <div className="flex flex-wrap gap-1.5">
+                  {groups.filter((g) => g !== item.group).map((g) => (
+                    <Pill key={g} size="sm" onClick={() => set({ group: g })}>{g}</Pill>
+                  ))}
+                </div>
+              </Field>
+              <Field label={`Progres · ${item.progress}%`}>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  className="range"
+                  style={{ "--p": `${item.progress}%` } as React.CSSProperties}
+                  value={item.progress}
+                  onChange={(e) => set({ progress: +e.target.value })}
+                  aria-label="Progres"
+                />
+              </Field>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-ink/10 px-6 py-4">
+            {confirmDel ? (
+              <span className="flex items-center gap-2 text-sm">
+                Hapus permanen?
+                <button className="btn !border-red-600 !bg-red-600 !text-white" onClick={() => { actions.remove(id); onClose(); }}>Ya, hapus</button>
+                <button className="btn" onClick={() => setConfirmDel(false)}>Batal</button>
+              </span>
+            ) : (
+              <button className="btn text-red-700" onClick={() => setConfirmDel(true)}>Hapus item</button>
+            )}
+            <button className="btn !bg-ink !text-paper" onClick={close}>Selesai</button>
+          </div>
+        </>
+      )}
+    </Modal>
   );
 }

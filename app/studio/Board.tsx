@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { actions, STATUSES, TYPES, type Item, type Status } from "./store";
+import { Pill } from "./ui";
 
 export function Board({ items, today, onOpen }: { items: Item[]; today: string; onOpen: (id: string) => void }) {
   const [over, setOver] = useState<Status | null>(null);
@@ -32,19 +33,21 @@ export function Board({ items, today, onOpen }: { items: Item[]; today: string; 
               return (
                 <article
                   key={i.id}
+                  data-enter
                   draggable
                   onDragStart={(e) => e.dataTransfer.setData("text/plain", i.id)}
                   onClick={() => onOpen(i.id)}
-                  className="cursor-grab rounded-xl border border-ink/20 bg-paper p-2.5 text-sm hover:border-ink"
+                  className="cursor-grab rounded-xl border border-ink/20 bg-paper p-3 text-sm transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-ink hover:shadow-[0_6px_0_-2px_rgb(20_19_18/0.12)]"
                 >
                   <div className="font-bold leading-snug">{i.title}</div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-faint">
-                    <span className="rounded bg-ink/10 px-1.5 py-0.5 text-ink">{TYPES.find((t) => t.id === i.type)?.label}</span>
-                    {i.channel !== "-" && <span>{i.channel}</span>}
-                    <span>{i.owner}</span>
-                    <span className={late ? "font-bold text-red-600" : ""}>{i.end.slice(5).split("-").reverse().join("/")}{late ? " · telat" : ""}</span>
+                  {i.description && <p className="m-0 mt-1 line-clamp-2 text-xs leading-snug text-faint">{i.description}</p>}
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <Pill size="sm">{TYPES.find((t) => t.id === i.type)?.label}</Pill>
+                    {i.channel !== "-" && <Pill size="sm">{i.channel}</Pill>}
+                    <Pill size="sm">{i.owner}</Pill>
+                    <Pill size="sm" color={late ? "#ef4444" : undefined}>{i.end.slice(5).split("-").reverse().join("/")}{late ? " · telat" : ""}</Pill>
                   </div>
-                  <div className="mt-2 h-1 rounded bg-ink/10"><div className="h-full rounded bg-ink" style={{ width: `${i.progress}%` }} /></div>
+                  <div className="mt-2.5 h-1 overflow-hidden rounded bg-ink/10"><div className="h-full rounded bg-ink transition-[width] duration-500" style={{ width: `${i.progress}%` }} /></div>
                 </article>
               );
             })}

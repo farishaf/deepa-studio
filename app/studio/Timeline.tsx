@@ -192,6 +192,7 @@ export function Timeline({
               return (
                 <div
                   key={it.id}
+                  data-enter
                   onPointerDown={(e) => begin(e, it.id, "move")}
                   onPointerMove={move}
                   onPointerUp={end}

@@ -35,7 +35,7 @@ export type Item = {
   start: string; // YYYY-MM-DD
   end: string; // inclusive
   progress: number; // 0-100
-  notes: string;
+  description: string;
 };
 
 /* ---------- date helpers (UTC day math, timezone-safe) ---------- */
@@ -74,7 +74,7 @@ function seed(): Item[] {
     off: number,
     len: number,
     progress: number,
-    notes = "",
+    description = "",
   ): Item => ({
     id: "seed" + n,
     title,
@@ -86,21 +86,26 @@ function seed(): Item[] {
     start: addDays(t, off),
     end: addDays(t, off + len - 1),
     progress,
-    notes,
+    description,
   });
   return [
-    mk(1, "Riset kompetitor & audiens", "marketing", "done", "Kampanye Q1", "Herlina", "-", -9, 4, 100),
-    mk(2, "Kalender konten 1 bulan", "marketing", "doing", "Kampanye Q1", "Herlina", "-", -3, 6, 60, "Tema: before/after brand UMKM"),
-    mk(3, "Reels: proses bikin logo", "content", "planned", "Kampanye Q1", "Herlina", "Instagram", 4, 2, 0),
+    mk(1, "Riset kompetitor & audiens", "marketing", "done", "Kampanye Q1", "Herlina", "-", -9, 4, 100, "Petakan 5 kompetitor lokal: gaya visual, frekuensi posting, dan celah yang bisa kita isi."),
+    mk(2, "Kalender konten 1 bulan", "marketing", "doing", "Kampanye Q1", "Herlina", "-", -3, 6, 60, "Tema bulan ini: before/after brand UMKM.\nTarget 12 posting: 6 Reels, 4 carousel, 2 artikel."),
+    mk(3, "Reels: proses bikin logo", "content", "planned", "Kampanye Q1", "Herlina", "Instagram", 4, 2, 0, "Video 30–45 detik: dari sketsa kasar sampai logo final. Musik santai, teks singkat."),
     mk(4, "Carousel: 5 tanda website perlu redesign", "content", "idea", "Kampanye Q1", "Faris", "Instagram", 7, 3, 0),
     mk(5, "Artikel blog: kenapa UMKM butuh landing page", "content", "planned", "Kampanye Q1", "Faris", "Blog", 9, 4, 0),
-    mk(6, "Discovery & wireframe", "project", "done", "Klien: Kopi Senja", "Faris", "-", -8, 5, 100),
+    mk(6, "Discovery & wireframe", "project", "done", "Klien: Kopi Senja", "Faris", "-", -8, 5, 100, "Workshop kebutuhan, sitemap, dan wireframe halaman utama disetujui klien."),
     mk(7, "Desain UI & brand kit", "project", "doing", "Klien: Kopi Senja", "Herlina", "-", -2, 7, 45),
     mk(8, "Development & integrasi", "project", "planned", "Klien: Kopi Senja", "Faris", "-", 5, 9, 0),
     mk(9, "Review & rilis", "project", "idea", "Klien: Kopi Senja", "Tim", "-", 14, 3, 0),
-    mk(10, "Rapikan portfolio studio", "internal", "review", "Internal", "Tim", "Website", -1, 5, 80),
+    mk(10, "Rapikan portfolio studio", "internal", "review", "Internal", "Tim", "Website", -1, 5, 80, "Tambah 3 studi kasus terbaru dan perbarui foto tim."),
     mk(11, "Template proposal & invoice", "internal", "planned", "Internal", "Tim", "-", 3, 4, 0),
   ];
+}
+
+// older saved data used `notes`; fold it into `description`
+export function normalize(raw: unknown): Item[] {
+  return (raw as (Item & { notes?: string })[]).map(({ notes, ...i }) => ({ ...i, description: i.description ?? notes ?? "" }));
 }
 
 function load() {
@@ -109,7 +114,7 @@ function load() {
   let items: Item[] | null = null;
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) items = JSON.parse(raw);
+    if (raw) items = normalize(JSON.parse(raw));
   } catch {}
   state = { items: items ?? seed(), ready: true };
 }
@@ -127,7 +132,7 @@ function subscribe(cb: () => void) {
   const onStorage = (e: StorageEvent) => {
     if (e.key !== KEY) return;
     try {
-      state = { items: e.newValue ? JSON.parse(e.newValue) : seed(), ready: true };
+      state = { items: e.newValue ? normalize(JSON.parse(e.newValue)) : seed(), ready: true };
       cb();
     } catch {}
   };
@@ -162,7 +167,7 @@ export const actions = {
       channel: "-",
       end: partial.start,
       progress: 0,
-      notes: "",
+      description: "",
       ...partial,
     };
     commit([...state.items, item]);
@@ -183,7 +188,7 @@ export const actions = {
     commit(state.items.filter((i) => i.id !== id));
   },
   replaceAll(items: Item[]) {
-    commit(items);
+    commit(normalize(items));
   },
   reset() {
     commit(seed());

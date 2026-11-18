@@ -75,6 +75,7 @@ export function CalendarView({
                   {list.slice(0, 3).map((i) => (
                     <button
                       key={i.id}
+                      data-enter
                       draggable
                       onDragStart={(e) => e.dataTransfer.setData("text/plain", `${i.id}|${diffDays(i.start, d)}`)}
                       onClick={() => onOpen(i.id)}
