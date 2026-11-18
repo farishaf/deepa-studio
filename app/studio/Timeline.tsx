@@ -110,8 +110,8 @@ export function Timeline({
 
       <div ref={scroller} className="relative max-h-[70vh] overflow-auto rounded-2xl border border-ink/15 bg-white select-none">
         {/* header */}
-        <div className="sticky top-0 z-30 flex bg-paper" style={{ width: LABEL_W + W }}>
-          <div className="sticky left-0 z-40 shrink-0 border-b border-r border-ink/15 bg-paper px-3 py-2 font-mono text-xs text-faint" style={{ width: LABEL_W }}>
+        <div className="sticky top-0 z-50 flex bg-paper" style={{ width: LABEL_W + W }}>
+          <div className="sticky left-0 z-[60] shrink-0 border-b border-r border-ink/15 bg-paper px-3 py-2 font-mono text-xs text-faint" style={{ width: LABEL_W }}>
             ITEM · {items.length}
           </div>
           <div className="relative border-b border-ink/15" style={{ width: W, height: 52 }}>
@@ -137,7 +137,7 @@ export function Timeline({
 
         {/* body */}
         <div className="flex" style={{ width: LABEL_W + W, height: H }}>
-          <div className="sticky left-0 z-20 shrink-0 border-r border-ink/15 bg-white" style={{ width: LABEL_W }}>
+          <div className="sticky left-0 z-40 shrink-0 border-r border-ink/15 bg-white" style={{ width: LABEL_W }}>
             {rows.map((r) =>
               r.kind === "g" ? (
                 <div key={"g" + r.name} className="flex items-center justify-between bg-paper px-3 text-xs font-extrabold uppercase tracking-wide" style={{ height: GROUP }}>
