@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { Board } from "./Board";
@@ -10,7 +11,9 @@ import {
   actions, addDays, CHANNELS, diffDays, OWNERS, STATUSES, TYPES, todayISO, useStudio,
   type Item, type ItemType, type Status,
 } from "./store";
-import { D, DatePicker, Field, Modal, Pill, SearchIcon, Select, TextArea, TextInput, usePressFeedback } from "./ui";
+import { logoutAction } from "@/app/(auth)/actions";
+import type { User } from "@/lib/users";
+import { D, DatePicker, Field, Modal, Pill, Popover, SearchIcon, Select, TextArea, TextInput, usePressFeedback } from "./ui";
 
 type View = "timeline" | "calendar" | "board";
 const VIEWS: { id: View; label: string }[] = [
@@ -21,7 +24,7 @@ const VIEWS: { id: View; label: string }[] = [
 const OWNER_OPTS = [{ value: "", label: "Semua PIC" }, ...OWNERS.map((o) => ({ value: o, label: o }))];
 const TYPE_OPTS = [{ value: "", label: "Semua tipe" }, ...TYPES.map((t) => ({ value: t.id, label: t.label }))];
 
-export function StudioApp() {
+export function StudioApp({ user }: { user: User }) {
   const { items, ready } = useStudio();
   // the view isn't rendered until the store is ready (client-only), so reading storage here can't mismatch hydration
   const [view, setView] = useState<View>(() => {
@@ -136,6 +139,7 @@ export function StudioApp() {
           <Select label="Filter PIC" value={owner} onChange={setOwner} options={OWNER_OPTS} className="w-36" />
           <Select label="Filter tipe" value={type} onChange={setType} options={TYPE_OPTS} className="w-40" />
           <button className="btn !bg-sun !py-2 font-extrabold" onClick={() => create(today)}>+ Item</button>
+          <AccountMenu user={user} />
         </div>
       </header>
 
@@ -164,6 +168,37 @@ export function StudioApp() {
         <ItemModal key={openId} id={openId} items={items} onClose={() => setOpenId(null)} />
       )}
     </main>
+  );
+}
+
+function AccountMenu({ user }: { user: User }) {
+  const [open, setOpen] = useState(false);
+  const btn = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  const item = "block w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-sun/50";
+  return (
+    <>
+      <button ref={btn} className="btn flex items-center gap-2 !py-1.5" onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open}>
+        <span className="grid size-6 place-items-center rounded-full bg-ink text-xs text-paper">{user.name.slice(0, 1).toUpperCase()}</span>
+        <span className="hidden max-w-28 truncate sm:inline">{user.name}</span>
+      </button>
+      <Popover anchor={btn} open={open} onClose={close} className="w-60">
+        <div role="menu">
+          <div className="border-b border-ink/10 px-3 pb-2 pt-1">
+            <div className="truncate font-bold">{user.name}</div>
+            <div className="mb-1.5 truncate font-mono text-xs text-faint">{user.email}</div>
+            <Pill size="sm" color={user.role === "admin" ? "#f2d338" : undefined}>{user.role === "admin" ? "Admin" : "User"}</Pill>
+          </div>
+          <div className="pt-1.5">
+            {user.role === "admin" && <Link role="menuitem" href="/studio/users" className={item}>Kelola pengguna</Link>}
+            <Link role="menuitem" href="/studio/account" className={item}>Ganti password</Link>
+            <form action={logoutAction}>
+              <button role="menuitem" className={`${item} text-red-700`}>Keluar</button>
+            </form>
+          </div>
+        </div>
+      </Popover>
+    </>
   );
 }
 
