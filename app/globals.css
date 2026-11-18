@@ -35,3 +35,27 @@ a:hover {
 .hover-pop {
   visibility: hidden;
 }
+
+/* internal studio controls */
+.btn {
+  border: 1px solid rgb(20 19 18 / 0.25);
+  border-radius: 999px;
+  background: #fff;
+  padding: 0.3rem 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn:hover {
+  border-color: var(--color-ink);
+}
+.field {
+  border: 1px solid rgb(20 19 18 / 0.25);
+  border-radius: 0.6rem;
+  background: #fff;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.875rem;
+}
+.field:focus-visible {
+  outline: 2px solid var(--color-ink);
+}
