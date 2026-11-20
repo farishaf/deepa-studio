@@ -126,7 +126,7 @@ function AddUserModal({ onClose }: { onClose: () => void }) {
           {s?.created ? (
             <div className="flex flex-col gap-3 text-sm">
               <p className="m-0">
-                <b>{s.created.name}</b> ditambahkan. {s.created.emailed ? "Undangan sudah dikirim lewat email." : "Kirim link ini ke yang bersangkutan (berlaku 7 hari):"}
+                <b>{s.created.name}</b> ditambahkan. {s.created.emailed ? "Email konfirmasi akun sudah dikirim." : "Kirim link ini ke yang bersangkutan (berlaku 7 hari):"}
               </p>
               <LinkBox link={s.created.link} />
               <button className="btn self-end !bg-ink !text-paper" onClick={close}>Selesai</button>

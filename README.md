@@ -48,7 +48,9 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
   On a public deploy, set `ADMIN_EMAIL` + `ADMIN_PASSWORD` instead so `/setup` is never exposed.
 - **Roles:** `admin` (manages users at `/studio/users`) and `user`. Admins add users; the new user gets an
   invite link (7 days) to choose their own password. Admins can also generate reset links and change roles.
-- **Forgot password:** `/forgot-password` sends a 1-hour single-use link. Set `SMTP_URL` + `APP_URL` to email it;
+- **Account confirmation:** when an admin adds a user, an email "Konfirmasi akun" is sent through SMTP; the user confirms
+  by choosing a password.
+- **Forgot password:** `/forgot-password` sends a 1-hour single-use link. Set the `SMTP_*` variables + `APP_URL` (see `.env.example`) to email it;
   otherwise it is printed to the server log (and admins can copy links from the Users page).
 - **Run:** `npm run build && npm start` (see `.env.example` for all settings).
 

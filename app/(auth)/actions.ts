@@ -58,7 +58,7 @@ export async function forgotPasswordAction(_: FormState, fd: FormData): Promise<
     return { message };
   }
   const link = `${base}/reset-password?token=${token}`;
-  const sent = await sendMail(user.email, "Reset password DEEPA Studio", `Halo ${user.name},\n\nKlik link ini untuk membuat password baru (berlaku 1 jam):\n${link}\n\nAbaikan email ini jika Kakak tidak memintanya.`);
+  const sent = await sendMail(user.email, "Reset password DEEPA Studio", `Halo ${user.name},\n\nKami menerima permintaan reset password. Link berlaku 1 jam. Abaikan email ini jika Kakak tidak memintanya.`, { label: "Buat password baru", url: link });
   // Dev convenience only: with no SMTP configured, show the link so the flow can be tried locally.
   return { message, devLink: !sent && process.env.NODE_ENV !== "production" ? link : undefined };
 }

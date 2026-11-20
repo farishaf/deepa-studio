@@ -15,13 +15,9 @@ const isRole = (r: unknown): r is Role => r === "admin" || r === "user";
 async function sendLink(email: string, name: string, link: string, invite: boolean) {
   // Only email links built from a configured APP_URL; the admin always gets the link on screen too.
   if (!appUrl()) return false;
-  return sendMail(
-    email,
-    invite ? "Undangan DEEPA Studio" : "Reset password DEEPA Studio",
-    invite
-      ? `Halo ${name},\n\nKakak diundang ke DEEPA Studio. Buat password lewat link ini (berlaku 7 hari):\n${link}`
-      : `Halo ${name},\n\nAdmin membuatkan link untuk membuat password baru (berlaku 1 jam):\n${link}`,
-  );
+  return invite
+    ? sendMail(email, "Konfirmasi akun DEEPA Studio", `Halo ${name},\n\nAkun DEEPA Studio sudah dibuatkan untuk Kakak. Konfirmasi akun dan buat password dengan menekan tombol di bawah. Link berlaku 7 hari.`, { label: "Konfirmasi akun", url: link })
+    : sendMail(email, "Reset password DEEPA Studio", `Halo ${name},\n\nAdmin membuatkan link untuk membuat password baru. Link berlaku 1 jam.`, { label: "Buat password baru", url: link });
 }
 
 export async function createUserAction(_: CreateState, fd: FormData): Promise<CreateState> {
