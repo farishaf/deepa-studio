@@ -1,28 +1,28 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
-import { db } from "./db";
+import { prisma } from "./db";
 
 export type TokenPurpose = "reset" | "invite";
 export const HOUR = 3600 * 1000;
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
 /** One live token per user+purpose; only its hash is stored. */
-export function issueToken(userId: string, purpose: TokenPurpose, ttlMs: number): string {
+export async function issueToken(userId: string, purpose: TokenPurpose, ttlMs: number): Promise<string> {
   const token = randomBytes(32).toString("base64url");
-  db().prepare("DELETE FROM auth_tokens WHERE user_id = ? AND purpose = ?").run(userId, purpose);
-  db().prepare("INSERT INTO auth_tokens (token_hash, user_id, purpose, expires_at) VALUES (?, ?, ?, ?)").run(sha(token), userId, purpose, Date.now() + ttlMs);
+  await prisma.$transaction([
+    prisma.authToken.deleteMany({ where: { userId, purpose } }),
+    prisma.authToken.create({ data: { tokenHash: sha(token), userId, purpose, expiresAt: new Date(Date.now() + ttlMs) } }),
+  ]);
   return token;
 }
 
-export function peekToken(token: string): { userId: string; purpose: TokenPurpose; email: string; name: string } | null {
+export async function peekToken(token: string): Promise<{ userId: string; purpose: TokenPurpose; email: string; name: string } | null> {
   if (!token) return null;
-  const row = db()
-    .prepare(
-      `SELECT t.user_id AS userId, t.purpose, u.email, u.name FROM auth_tokens t JOIN users u ON u.id = t.user_id
-       WHERE t.token_hash = ? AND t.expires_at > ?`,
-    )
-    .get(sha(token), Date.now()) as { userId: string; purpose: TokenPurpose; email: string; name: string } | undefined;
-  return row ?? null;
+  const t = await prisma.authToken.findFirst({
+    where: { tokenHash: sha(token), expiresAt: { gt: new Date() } },
+    include: { user: { select: { email: true, name: true } } },
+  });
+  return t ? { userId: t.userId, purpose: t.purpose, email: t.user.email, name: t.user.name } : null;
 }
 
-export const clearTokens = (userId: string) => db().prepare("DELETE FROM auth_tokens WHERE user_id = ?").run(userId);
+export const clearTokens = (userId: string) => prisma.authToken.deleteMany({ where: { userId } });

@@ -1,0 +1,59 @@
+// SQLite by default (single file, zero setup). To use Postgres/MySQL later, change the
+// datasource provider + DATABASE_URL and swap the driver adapter in lib/db.ts.
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  admin
+  user
+}
+
+enum TokenPurpose {
+  reset
+  invite
+}
+
+model User {
+  id           String      @id @default(uuid())
+  email        String      @unique
+  name         String
+  role         Role
+  // "!" means an invited user who hasn't chosen a password yet
+  passwordHash String
+  createdAt    DateTime    @default(now())
+  sessions     Session[]
+  tokens       AuthToken[]
+}
+
+// Only a SHA-256 hash of the cookie token is stored.
+model Session {
+  tokenHash String   @id
+  userId    String
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Single-use password reset / invite links (hashed).
+model AuthToken {
+  tokenHash String       @id
+  userId    String
+  purpose   TokenPurpose
+  expiresAt DateTime
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+}

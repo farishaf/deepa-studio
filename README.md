@@ -39,8 +39,11 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 `/studio` (timeline, calendar, board) is an internal tool, unlinked from the landing page and protected by login.
 
-- **Database:** a single SQLite file via Node's built-in `node:sqlite` (**Node >= 22.13**). No server, no native build.
-  It is created automatically at `./data/deepa.db` (override with `DATABASE_PATH`; keep it on a persistent disk).
+- **Database:** [Prisma](https://www.prisma.io) with SQLite (libSQL driver adapter), a single file at `DATABASE_URL`
+  (default `file:./data/deepa.db`). No database server to run. Schema: `prisma/schema.prisma`; migrations are committed in
+  `prisma/migrations` and applied automatically by `npm run dev` / `npm start` (`prisma migrate deploy`). Needs Node >= 20.19.
+  Change the schema with `npm run db:migrate`; browse data with `npm run db:studio`.
+  To move to Postgres/MySQL later, change the datasource provider + `DATABASE_URL` and swap the adapter in `lib/db.ts`.
 - **First run:** open `/login`. With no users yet you are sent to `/setup` to create the first admin.
   On a public deploy, set `ADMIN_EMAIL` + `ADMIN_PASSWORD` instead so `/setup` is never exposed.
 - **Roles:** `admin` (manages users at `/studio/users`) and `user`. Admins add users; the new user gets an

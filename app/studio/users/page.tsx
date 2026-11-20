@@ -20,5 +20,5 @@ export default function UsersPage() {
 async function Users() {
   const me = await requireAdmin(); // non-admins are redirected to /studio
   await connection();
-  return <UsersAdmin users={listUsers()} meId={me.id} />;
+  return <UsersAdmin users={await listUsers()} meId={me.id} />;
 }

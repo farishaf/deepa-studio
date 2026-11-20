@@ -18,7 +18,7 @@ async function Reset({ searchParams }: { searchParams: Search }) {
   await connection();
   const sp = await searchParams;
   const token = typeof sp.token === "string" ? sp.token : "";
-  const info = peekToken(token);
+  const info = await peekToken(token);
   if (!info)
     return (
       <div className="flex flex-col gap-3 text-sm">

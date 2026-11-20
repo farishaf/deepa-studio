@@ -17,7 +17,7 @@ export default function LoginPage({ searchParams }: { searchParams: Search }) {
 
 async function Login({ searchParams }: { searchParams: Search }) {
   await connection(); // the user count must be read per request, not at build time
-  if (countUsers() === 0) redirect("/setup");
+  if ((await countUsers()) === 0) redirect("/setup");
   if (await getCurrentUser()) redirect("/studio");
   const sp = await searchParams;
   const next = typeof sp.next === "string" ? sp.next : "/studio";

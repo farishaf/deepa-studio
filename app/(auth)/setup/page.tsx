@@ -14,6 +14,6 @@ export default function SetupPage() {
 
 async function Setup() {
   await connection();
-  if (countUsers() > 0) redirect("/login"); // only available until the first account exists
+  if ((await countUsers()) > 0) redirect("/login"); // only available until the first account exists
   return <SetupForm />;
 }

@@ -4,9 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { sendMail } from "@/lib/mail";
 import { appUrl, requestUrl } from "@/lib/request";
-import { destroyUserSessions } from "@/lib/session";
-import { clearTokens, HOUR, issueToken } from "@/lib/tokens";
-import { countAdmins, createUser, deleteUser, findByEmail, findById, isEmail, normalizeEmail, setRole, type Role } from "@/lib/users";
+import { HOUR, issueToken } from "@/lib/tokens";
+import { countAdmins, createUser, deleteUser, findById, isEmail, isUniqueViolation, normalizeEmail, setRole, type Role } from "@/lib/users";
 
 export type CreateState = { error?: string; created?: { name: string; email: string; link: string; emailed: boolean } } | undefined;
 export type Result = { error?: string; link?: string };
@@ -33,10 +32,14 @@ export async function createUserAction(_: CreateState, fd: FormData): Promise<Cr
   if (!name) return { error: "Nama wajib diisi." };
   if (!isEmail(email)) return { error: "Email tidak valid." };
   if (!isRole(role)) return { error: "Pilih role." };
-  if (findByEmail(email)) return { error: "Email sudah terdaftar." };
-
-  const user = createUser({ name, email, role });
-  const link = `${await requestUrl()}/reset-password?token=${issueToken(user.id, "invite", 7 * 24 * HOUR)}`;
+  let user;
+  try {
+    user = await createUser({ name, email, role });
+  } catch (e) {
+    if (isUniqueViolation(e)) return { error: "Email sudah terdaftar." };
+    throw e;
+  }
+  const link = `${await requestUrl()}/reset-password?token=${await issueToken(user.id, "invite", 7 * 24 * HOUR)}`;
   const emailed = await sendLink(email, name, link, true);
   revalidatePath("/studio/users");
   return { created: { name, email, link, emailed } };
@@ -45,33 +48,31 @@ export async function createUserAction(_: CreateState, fd: FormData): Promise<Cr
 export async function setRoleAction(userId: string, role: Role): Promise<Result> {
   const me = await requireAdmin();
   if (!isRole(role)) return { error: "Role tidak valid." };
-  const target = findById(userId);
+  const target = await findById(userId);
   if (!target) return { error: "Pengguna tidak ditemukan." };
   if (target.id === me.id) return { error: "Tidak bisa mengubah role akun sendiri." };
-  if (target.role === "admin" && role !== "admin" && countAdmins() <= 1) return { error: "Harus ada minimal satu admin." };
-  setRole(userId, role);
+  if (target.role === "admin" && role !== "admin" && (await countAdmins()) <= 1) return { error: "Harus ada minimal satu admin." };
+  await setRole(userId, role);
   revalidatePath("/studio/users");
   return {};
 }
 
 export async function resetLinkAction(userId: string): Promise<Result> {
   await requireAdmin();
-  const target = findById(userId);
+  const target = await findById(userId);
   if (!target) return { error: "Pengguna tidak ditemukan." };
-  const link = `${await requestUrl()}/reset-password?token=${issueToken(userId, "reset", HOUR)}`;
+  const link = `${await requestUrl()}/reset-password?token=${await issueToken(userId, "reset", HOUR)}`;
   await sendLink(target.email, target.name, link, false);
   return { link };
 }
 
 export async function deleteUserAction(userId: string): Promise<Result> {
   const me = await requireAdmin();
-  const target = findById(userId);
+  const target = await findById(userId);
   if (!target) return { error: "Pengguna tidak ditemukan." };
   if (target.id === me.id) return { error: "Tidak bisa menghapus akun sendiri." };
-  if (target.role === "admin" && countAdmins() <= 1) return { error: "Harus ada minimal satu admin." };
-  destroyUserSessions(userId);
-  clearTokens(userId);
-  deleteUser(userId);
+  if (target.role === "admin" && (await countAdmins()) <= 1) return { error: "Harus ada minimal satu admin." };
+  await deleteUser(userId); // sessions and tokens are removed by ON DELETE CASCADE
   revalidatePath("/studio/users");
   return {};
 }
