@@ -34,3 +34,24 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Internal Studio: login & roles
+
+`/studio` (timeline, calendar, board) is an internal tool, unlinked from the landing page and protected by login.
+
+- **Database:** [Prisma](https://www.prisma.io) with SQLite (libSQL driver adapter), a single file at `DATABASE_URL`
+  (default `file:./data/deepa.db`). No database server to run. Schema: `prisma/schema.prisma`; migrations are committed in
+  `prisma/migrations` and applied automatically by `npm run dev` / `npm start` (`prisma migrate deploy`). Needs Node >= 20.19.
+  Change the schema with `npm run db:migrate`; browse data with `npm run db:studio`.
+  To move to Postgres/MySQL later, change the datasource provider + `DATABASE_URL` and swap the adapter in `lib/db.ts`.
+- **First run:** open `/login`. With no users yet you are sent to `/setup` to create the first admin.
+  On a public deploy, set `ADMIN_EMAIL` + `ADMIN_PASSWORD` instead so `/setup` is never exposed.
+- **Roles:** `admin` (manages users at `/studio/users`) and `user`. Admins add users; the new user gets an
+  invite link (7 days) to choose their own password. Admins can also generate reset links and change roles.
+- **Account confirmation:** when an admin adds a user, an email "Konfirmasi akun" is sent through SMTP; the user confirms
+  by choosing a password.
+- **Forgot password:** `/forgot-password` sends a 1-hour single-use link. Set the `SMTP_*` variables + `APP_URL` (see `.env.example`) to email it;
+  otherwise it is printed to the server log (and admins can copy links from the Users page).
+- **Run:** `npm run build && npm start` (see `.env.example` for all settings).
+
+> Studio items are still stored in each browser's localStorage, not in the database.
